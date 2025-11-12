@@ -1,0 +1,17 @@
+{
+  "learning_history": [
+    {
+      "timestamp": "2025-11-11T17:24:53.066970",
+      "schedule_size": 9,
+      "total_risk_reduction": 10.69299093683033,
+      "total_cost": 237199,
+      "actions_used": 4,
+      "locations_covered": 5
+    }
+  ],
+  "action_performance": {
+    "early_warning_system": {
+      "total_risk_reduction": 1.9317591448784233,
+      "total_cost": 40557,
+      "count": 1,
+      "locations_used": 

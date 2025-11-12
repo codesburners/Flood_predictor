@@ -4,6 +4,8 @@ import pandas as pd
 from typing import Dict, List, Tuple, Any
 import random
 from datetime import datetime
+import os
+import json
 
 class AdaptiveRLAgent:
     def __init__(self, districts, weather_service):
@@ -12,14 +14,59 @@ class AdaptiveRLAgent:
         self.learning_history = []
         self.action_performance = {}  # Track real performance
         self.model_loaded = True
+        self.checkpoint_dir = os.path.join("rl_models")
+        self.state_path = os.path.join(self.checkpoint_dir, "rl_agent_state.json")
         
     def load_model(self):
         """Simulate loading a pre-trained model"""
         try:
+            # Load persisted state if available
+            if os.path.exists(self.state_path):
+                with open(self.state_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.learning_history = [
+                    {
+                        'timestamp': datetime.fromisoformat(item['timestamp']),
+                        'schedule_size': item['schedule_size'],
+                        'total_risk_reduction': item['total_risk_reduction'],
+                        'total_cost': item['total_cost'],
+                        'actions_used': item['actions_used'],
+                        'locations_covered': item['locations_covered']
+                    }
+                    for item in data.get("learning_history", [])
+                ]
+                self.action_performance = data.get("action_performance", {})
             self.model_loaded = True
             return True
         except Exception as e:
             print(f"Model loading failed: {e}")
+            return False
+
+    def save_model(self):
+        """Persist agent learning to disk"""
+        try:
+            os.makedirs(self.checkpoint_dir, exist_ok=True)
+            serializable_history = [
+                {
+                    'timestamp': item['timestamp'].isoformat() if isinstance(item['timestamp'], datetime) else str(item['timestamp']),
+                    'schedule_size': item['schedule_size'],
+                    'total_risk_reduction': item['total_risk_reduction'],
+                    'total_cost': item['total_cost'],
+                    'actions_used': item['actions_used'],
+                    'locations_covered': item['locations_covered']
+                }
+                for item in self.learning_history
+            ]
+            state = {
+                "learning_history": serializable_history,
+                "action_performance": self.action_performance,
+                "saved_at": datetime.utcnow().isoformat()
+            }
+            with open(self.state_path, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Model saving failed: {e}")
             return False
     
     def predict_optimal_schedule(self, risk_assessments, available_teams, available_budget, planning_horizon):
@@ -40,6 +87,8 @@ class AdaptiveRLAgent:
                 metrics['ai_efficiency'] = 'High'
                 metrics['learning_score'] = self._calculate_learning_score()
                 metrics['adaptability_score'] = self._calculate_adaptability_score(schedule)
+                # Persist learning
+                self.save_model()
             else:
                 metrics['ai_efficiency'] = 'Low'
                 metrics['learning_score'] = 0.0
@@ -60,6 +109,7 @@ class AdaptiveRLAgent:
             # Update learning even for fallback
             if schedule:
                 self._update_learning_from_schedule(schedule, risk_assessments)
+                self.save_model()
             
             # Ensure metrics completeness for fallback too
             metrics = self._ensure_metrics_completeness(metrics, risk_assessments)
